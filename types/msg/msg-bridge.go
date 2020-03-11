@@ -1,0 +1,310 @@
+package msg
+
+import (
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"reflect"
+
+	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
+	sdk "github.com/binance-chain/go-sdk/common/types"
+)
+
+const (
+	RouteBridge     = "bridge"
+	MaxDecimal  int = 18
+
+	TransferInMsgType  = "crossTransferIn"
+	TimeoutMsgType     = "crossTimeout"
+	BindMsgType        = "crossBind"
+	TransferOutMsgType = "crossTransferOut"
+)
+
+// EthereumAddress defines a standard ethereum address
+type EthereumAddress gethCommon.Address
+
+// NewEthereumAddress is a constructor function for EthereumAddress
+func NewEthereumAddress(address string) EthereumAddress {
+	return EthereumAddress(gethCommon.HexToAddress(address))
+}
+
+func (ethAddr EthereumAddress) IsEmpty() bool {
+	addrValue := big.NewInt(0)
+	addrValue.SetBytes(ethAddr[:])
+
+	return addrValue.Cmp(big.NewInt(0)) == 0
+}
+
+// Route should return the name of the module
+func (ethAddr EthereumAddress) String() string {
+	return gethCommon.Address(ethAddr).String()
+}
+
+// MarshalJSON marshals the ethereum address to JSON
+func (ethAddr EthereumAddress) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("\"%v\"", ethAddr.String())), nil
+}
+
+// UnmarshalJSON unmarshals an ethereum address
+func (ethAddr *EthereumAddress) UnmarshalJSON(input []byte) error {
+	return hexutil.UnmarshalFixedJSON(reflect.TypeOf(gethCommon.Address{}), input, ethAddr[:])
+}
+
+type TransferInMsg struct {
+	Sequence         int64           `json:"sequence"`
+	ContractAddress  EthereumAddress `json:"contract_address"`
+	SenderAddress    EthereumAddress `json:"sender_address"`
+	ReceiverAddress  sdk.AccAddress  `json:"receiver_address"`
+	Amount           sdk.Coin        `json:"amount"`
+	RelayFee         sdk.Coin        `json:"relay_fee"`
+	ValidatorAddress sdk.AccAddress  `json:"validator_address"`
+	ExpireTime       int64           `json:"expire_time"`
+}
+
+func NewTransferInMsg(sequence int64, contractAddr EthereumAddress,
+	senderAddr EthereumAddress, receiverAddr sdk.AccAddress, amount sdk.Coin,
+	relayFee sdk.Coin, validatorAddr sdk.AccAddress, expireTime int64) TransferInMsg {
+	return TransferInMsg{
+		Sequence:         sequence,
+		ContractAddress:  contractAddr,
+		SenderAddress:    senderAddr,
+		ReceiverAddress:  receiverAddr,
+		Amount:           amount,
+		RelayFee:         relayFee,
+		ValidatorAddress: validatorAddr,
+		ExpireTime:       expireTime,
+	}
+}
+
+// nolint
+func (msg TransferInMsg) Route() string { return RouteBridge }
+func (msg TransferInMsg) Type() string  { return TransferInMsgType }
+func (msg TransferInMsg) GetSigners() []sdk.AccAddress {
+	return []sdk.AccAddress{msg.ValidatorAddress}
+}
+
+func (msg TransferInMsg) String() string {
+	return fmt.Sprintf("TransferInMsg{"+
+		"ValidatorAddress:%v,"+
+		"ContractAddress:%s,"+
+		"SenderAddress:%s,"+
+		"ReceiverAddress:%s,"+
+		"Amount:%s,"+
+		"RelayFee:%s,"+
+		"ValidatorAddress:%s,"+
+		"ExpireTime:%d}", msg.ValidatorAddress,
+		msg.ContractAddress.String(), msg.SenderAddress.String(), msg.ReceiverAddress.String(),
+		msg.Amount.String(), msg.RelayFee.String(), msg.ValidatorAddress.String(), msg.ExpireTime)
+}
+
+// GetSignBytes - Get the bytes for the message signer to sign on
+func (msg TransferInMsg) GetSignBytes() []byte {
+	b, err := json.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func (msg TransferInMsg) GetInvolvedAddresses() []sdk.AccAddress {
+	return msg.GetSigners()
+}
+
+// ValidateBasic is used to quickly disqualify obviously invalid messages quickly
+func (msg TransferInMsg) ValidateBasic() error {
+	if msg.Sequence < 0 {
+		return fmt.Errorf("sequence should not be less than 0")
+	}
+	if msg.ExpireTime <= 0 {
+		return fmt.Errorf("expire time should be larger than 0")
+	}
+	if msg.ContractAddress.IsEmpty() {
+		return fmt.Errorf("contract address should not be empty")
+	}
+	if msg.SenderAddress.IsEmpty() {
+		return fmt.Errorf("sender address should not be empty")
+	}
+	if len(msg.ReceiverAddress) != sdk.AddrLen {
+		return fmt.Errorf("lenghth of receiver address should be %d", sdk.AddrLen)
+	}
+	if len(msg.ValidatorAddress) != sdk.AddrLen {
+		return fmt.Errorf("lenghth of validator address should be %d", sdk.AddrLen)
+	}
+	if !msg.Amount.IsPositive() {
+		return fmt.Errorf("amount to send should be positive")
+	}
+	if !msg.RelayFee.IsPositive() {
+		return fmt.Errorf("amount to send should be positive")
+	}
+	return nil
+}
+
+type TimeoutMsg struct {
+	SenderAddress    sdk.AccAddress `json:"sender_address"`
+	Sequence         int64          `json:"sequence"`
+	Amount           sdk.Coin       `json:"amount"`
+	ValidatorAddress sdk.AccAddress `json:"validator_address"`
+}
+
+func NewTimeoutMsg(senderAddr sdk.AccAddress, sequence int64, amount sdk.Coin, validatorAddr sdk.AccAddress) TimeoutMsg {
+	return TimeoutMsg{
+		SenderAddress:    senderAddr,
+		Sequence:         sequence,
+		Amount:           amount,
+		ValidatorAddress: validatorAddr,
+	}
+}
+
+// nolint
+func (msg TimeoutMsg) Route() string { return RouteBridge }
+func (msg TimeoutMsg) Type() string  { return TimeoutMsgType }
+func (msg TimeoutMsg) GetSigners() []sdk.AccAddress {
+	return []sdk.AccAddress{msg.ValidatorAddress}
+}
+func (msg TimeoutMsg) String() string {
+	return fmt.Sprintf("TimeoutMsg{"+
+		"SenderAddress:%s,"+
+		"Sequence:%d,"+
+		"Amount:%s,"+
+		"ValidatorAddress:%s}",
+		msg.SenderAddress.String(), msg.Sequence, msg.Amount.String(), msg.ValidatorAddress.String())
+}
+
+// GetSignBytes - Get the bytes for the message signer to sign on
+func (msg TimeoutMsg) GetSignBytes() []byte {
+	b, err := json.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func (msg TimeoutMsg) GetInvolvedAddresses() []sdk.AccAddress {
+	return msg.GetSigners()
+}
+
+// ValidateBasic is used to quickly disqualify obviously invalid messages quickly
+func (msg TimeoutMsg) ValidateBasic() error {
+	if len(msg.SenderAddress) != sdk.AddrLen {
+		return fmt.Errorf("lenghth of sender address should be %d", sdk.AddrLen)
+	}
+	if msg.Sequence < 0 {
+		return fmt.Errorf("sequence should not be less than 0")
+	}
+	if len(msg.ValidatorAddress) != sdk.AddrLen {
+		return fmt.Errorf("lenghth of validator address should be %d", sdk.AddrLen)
+	}
+	if !msg.Amount.IsPositive() {
+		return fmt.Errorf("amount to send should be positive")
+	}
+	return nil
+}
+
+type BindMsg struct {
+	From            sdk.AccAddress  `json:"from"`
+	Symbol          string          `json:"symbol"`
+	Amount          int64           `json:"amount"`
+	ContractAddress EthereumAddress `json:"contract_address"`
+	ContractDecimal int             `json:"contract_decimal"`
+}
+
+func NewBindMsg(from sdk.AccAddress, symbol string, amount int64, contractAddress EthereumAddress, contractDecimal int) BindMsg {
+	return BindMsg{
+		From:            from,
+		Amount:          amount,
+		Symbol:          symbol,
+		ContractAddress: contractAddress,
+		ContractDecimal: contractDecimal,
+	}
+}
+
+func (msg BindMsg) Route() string { return RouteBridge }
+func (msg BindMsg) Type() string  { return BindMsgType }
+func (msg BindMsg) String() string {
+	return fmt.Sprintf("Bind{%v#%s#%d$%s#%d}", msg.From, msg.Symbol, msg.Amount, msg.ContractAddress.String(), msg.ContractDecimal)
+}
+func (msg BindMsg) GetInvolvedAddresses() []sdk.AccAddress { return msg.GetSigners() }
+func (msg BindMsg) GetSigners() []sdk.AccAddress           { return []sdk.AccAddress{msg.From} }
+
+func (msg BindMsg) ValidateBasic() error {
+	if len(msg.From) != sdk.AddrLen {
+		return fmt.Errorf("address length should be %d", sdk.AddrLen)
+	}
+
+	if len(msg.Symbol) == 0 {
+		return fmt.Errorf("symbol should not be empty")
+	}
+
+	if msg.Amount <= 0 {
+		return fmt.Errorf("amount should be larger than 0")
+	}
+
+	if msg.ContractAddress.IsEmpty() {
+		return fmt.Errorf("contract address should not be empty")
+	}
+
+	if msg.ContractDecimal < 0 {
+		return fmt.Errorf("decimal should be no less than 0 and larger than %d", MaxDecimal)
+	}
+
+	return nil
+}
+
+func (msg BindMsg) GetSignBytes() []byte {
+	b, err := json.Marshal(msg) // XXX: ensure some canonical form
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+type TransferOutMsg struct {
+	From       sdk.AccAddress  `json:"from"`
+	To         EthereumAddress `json:"to"`
+	Amount     sdk.Coin        `json:"amount"`
+	ExpireTime int64           `json:"expire_time"`
+}
+
+func NewTransferOutMsg(from sdk.AccAddress, to EthereumAddress, amount sdk.Coin, expireTime int64) TransferOutMsg {
+	return TransferOutMsg{
+		From:   from,
+		To:     to,
+		Amount: amount,
+	}
+}
+
+func (msg TransferOutMsg) Route() string { return RouteBridge }
+func (msg TransferOutMsg) Type() string  { return TransferOutMsgType }
+func (msg TransferOutMsg) String() string {
+	return fmt.Sprintf("Transfer{%v#%s#%s}", msg.From, msg.To.String(), msg.Amount.String())
+}
+func (msg TransferOutMsg) GetInvolvedAddresses() []sdk.AccAddress { return msg.GetSigners() }
+func (msg TransferOutMsg) GetSigners() []sdk.AccAddress           { return []sdk.AccAddress{msg.From} }
+func (msg TransferOutMsg) ValidateBasic() error {
+	if len(msg.From) != sdk.AddrLen {
+		return fmt.Errorf("address length should be %d", sdk.AddrLen)
+	}
+
+	if msg.To.IsEmpty() {
+		return fmt.Errorf("to address should not be empty")
+	}
+
+	if !msg.Amount.IsPositive() {
+		return fmt.Errorf("amount should be positive")
+	}
+
+	if msg.ExpireTime <= 0 {
+		return fmt.Errorf("expire time should be larger than 0")
+	}
+
+	return nil
+}
+func (msg TransferOutMsg) GetSignBytes() []byte {
+	b, err := json.Marshal(msg) // XXX: ensure some canonical form
+	if err != nil {
+		panic(err)
+	}
+	return b
+}

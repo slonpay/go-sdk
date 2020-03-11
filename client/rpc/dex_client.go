@@ -4,13 +4,14 @@ import (
 	"errors"
 	"fmt"
 
+	core_types "github.com/tendermint/tendermint/rpc/core/types"
+
 	"github.com/binance-chain/go-sdk/common"
 	"github.com/binance-chain/go-sdk/common/types"
 	"github.com/binance-chain/go-sdk/keys"
 	gtypes "github.com/binance-chain/go-sdk/types"
 	"github.com/binance-chain/go-sdk/types/msg"
 	"github.com/binance-chain/go-sdk/types/tx"
-	core_types "github.com/tendermint/tendermint/rpc/core/types"
 )
 
 type SyncType int
@@ -643,6 +644,44 @@ func (c *HTTP) CancelOrder(baseAssetSymbol, quoteAssetSymbol, refId string, sync
 	return c.broadcast(cancelOrderMsg, syncType, options...)
 }
 
+func (c *HTTP) TransferIn(sequence int64, contractAddr msg.EthereumAddress,
+	senderAddr msg.EthereumAddress, receiverAddr types.AccAddress, amount types.Coin,
+	relayFee types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
+	if c.key == nil {
+		return nil, KeyMissingError
+	}
+
+	fromAddr := c.key.GetAddr()
+
+	transferInMsg := msg.NewTransferInMsg(sequence, contractAddr, senderAddr, receiverAddr, amount,
+		relayFee, fromAddr, expireTime)
+
+	return c.broadcast(transferInMsg, syncType, options...)
+}
+
+func (c *HTTP) TransferOut(to msg.EthereumAddress, amount types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
+	if c.key == nil {
+		return nil, KeyMissingError
+	}
+
+	fromAddr := c.key.GetAddr()
+
+	transferOutMsg := msg.NewTransferOutMsg(fromAddr, to, amount, expireTime)
+
+	return c.broadcast(transferOutMsg, syncType, options...)
+}
+
+func (c *HTTP) Bind(symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimal int, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
+	if c.key == nil {
+		return nil, KeyMissingError
+	}
+
+	fromAddr := c.key.GetAddr()
+
+	bindMsg := msg.NewBindMsg(fromAddr, symbol, amount, contractAddress, contractDecimal)
+
+	return c.broadcast(bindMsg, syncType, options...)
+}
 func (c *HTTP) broadcast(m msg.Msg, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
 	signBz, err := c.sign(m, options...)
 	if err != nil {

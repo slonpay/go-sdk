@@ -41,6 +41,11 @@ func RegisterCodec(cdc *amino.Codec) {
 	cdc.RegisterConcrete(MsgCreateValidator{}, "cosmos-sdk/MsgCreateValidator", nil)
 	cdc.RegisterConcrete(MsgRemoveValidator{}, "cosmos-sdk/MsgRemoveValidator", nil)
 	cdc.RegisterConcrete(MsgCreateValidatorProposal{}, "cosmos-sdk/MsgCreateValidatorProposal", nil)
+
+	cdc.RegisterConcrete(TransferInMsg{}, "bridge/TransferInMsg", nil)
+	cdc.RegisterConcrete(TimeoutMsg{}, "bridge/TimeoutMsg", nil)
+	cdc.RegisterConcrete(BindMsg{}, "bridge/BindMsg", nil)
+	cdc.RegisterConcrete(TransferOutMsg{}, "bridge/TransferOutMsg", nil)
 }
 
 func init() {
