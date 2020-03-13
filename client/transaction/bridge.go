@@ -27,9 +27,9 @@ type BindResult struct {
 	tx.TxCommitResult
 }
 
-func (c *client) Bind(symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimal int, sync bool, options ...Option) (*BindResult, error) {
+func (c *client) Bind(symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimals int8, expireTime int64, sync bool, options ...Option) (*BindResult, error) {
 	fromAddr := c.keyManager.GetAddr()
-	bindMsg := msg.NewBindMsg(fromAddr, symbol, amount, contractAddress, contractDecimal)
+	bindMsg := msg.NewBindMsg(fromAddr, symbol, amount, contractAddress, contractDecimals, expireTime)
 	commit, err := c.broadcastMsg(bindMsg, sync, options...)
 	if err != nil {
 		return nil, err
@@ -49,4 +49,32 @@ func (c *client) TransferOut(to msg.EthereumAddress, amount sdk.Coin, expireTime
 		return nil, err
 	}
 	return &TransferOutResult{*commit}, nil
+}
+
+type TransferOutTimeOutResult struct {
+	tx.TxCommitResult
+}
+
+func (c *client) TransferOutTimeOut(sender sdk.AccAddress, amount sdk.Coin, expireTime int64, sync bool, options ...Option) (*TransferOutTimeOutResult, error) {
+	fromAddr := c.keyManager.GetAddr()
+	transferOutTimeOutMsg := msg.NewTransferOutTimeoutMsg(sender, expireTime, amount, fromAddr)
+	commit, err := c.broadcastMsg(transferOutTimeOutMsg, sync, options...)
+	if err != nil {
+		return nil, err
+	}
+	return &TransferOutTimeOutResult{*commit}, nil
+}
+
+type UpdateBindResult struct {
+	tx.TxCommitResult
+}
+
+func (c *client) UpdateBind(sequence int64, symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, sync bool, options ...Option) (*TransferOutTimeOutResult, error) {
+	fromAddr := c.keyManager.GetAddr()
+	updateBindMsg := msg.NewUpdateBindMsg(sequence, fromAddr, symbol, amount, contractAddress, contractDecimals, status)
+	commit, err := c.broadcastMsg(updateBindMsg, sync, options...)
+	if err != nil {
+		return nil, err
+	}
+	return &TransferOutTimeOutResult{*commit}, nil
 }

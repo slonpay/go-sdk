@@ -62,6 +62,14 @@ type DexClient interface {
 		syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	ClaimHTLT(swapID []byte, randomNumber []byte, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	RefundHTLT(swapID []byte, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
+
+	UpdateBind(sequence int64, symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
+	TransferOutTimeout(sender types.AccAddress, amount types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
+	Bind(symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimals int8, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
+	TransferOut(to msg.EthereumAddress, amount types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
+	TransferIn(sequence int64, contractAddr msg.EthereumAddress,
+		senderAddr msg.EthereumAddress, receiverAddr types.AccAddress, amount types.Coin,
+		relayFee types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 }
 
 func (c *HTTP) TxInfoSearch(query string, prove bool, page, perPage int) ([]Info, error) {
@@ -671,17 +679,39 @@ func (c *HTTP) TransferOut(to msg.EthereumAddress, amount types.Coin, expireTime
 	return c.broadcast(transferOutMsg, syncType, options...)
 }
 
-func (c *HTTP) Bind(symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimal int, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
+func (c *HTTP) Bind(symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimals int8, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
 	if c.key == nil {
 		return nil, KeyMissingError
 	}
 
 	fromAddr := c.key.GetAddr()
 
-	bindMsg := msg.NewBindMsg(fromAddr, symbol, amount, contractAddress, contractDecimal)
+	bindMsg := msg.NewBindMsg(fromAddr, symbol, amount, contractAddress, contractDecimals, expireTime)
 
 	return c.broadcast(bindMsg, syncType, options...)
 }
+
+func (c *HTTP) TransferOutTimeout(sender types.AccAddress, amount types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
+	if c.key == nil {
+		return nil, KeyMissingError
+	}
+
+	fromAddr := c.key.GetAddr()
+	transferOutTimeOutMsg := msg.NewTransferOutTimeoutMsg(sender, expireTime, amount, fromAddr)
+
+	return c.broadcast(transferOutTimeOutMsg, syncType, options...)
+}
+
+func (c *HTTP) UpdateBind(sequence int64, symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
+	if c.key == nil {
+		return nil, KeyMissingError
+	}
+
+	fromAddr := c.key.GetAddr()
+	updateBindMsg := msg.NewUpdateBindMsg(sequence, fromAddr, symbol, amount, contractAddress, contractDecimals, status)
+	return c.broadcast(updateBindMsg, syncType, options...)
+}
+
 func (c *HTTP) broadcast(m msg.Msg, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
 	signBz, err := c.sign(m, options...)
 	if err != nil {
