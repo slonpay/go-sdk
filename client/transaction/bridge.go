@@ -69,7 +69,7 @@ type UpdateBindResult struct {
 	tx.TxCommitResult
 }
 
-func (c *client) UpdateBind(sequence int64, symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, sync bool, options ...Option) (*TransferOutTimeOutResult, error) {
+func (c *client) UpdateBind(sequence int64, symbol string, amount sdk.Int, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, sync bool, options ...Option) (*TransferOutTimeOutResult, error) {
 	fromAddr := c.keyManager.GetAddr()
 	updateBindMsg := msg.NewUpdateBindMsg(sequence, fromAddr, symbol, amount, contractAddress, contractDecimals, status)
 	commit, err := c.broadcastMsg(updateBindMsg, sync, options...)

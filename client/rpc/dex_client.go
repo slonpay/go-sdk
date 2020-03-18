@@ -3,6 +3,7 @@ package rpc
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	core_types "github.com/tendermint/tendermint/rpc/core/types"
 
@@ -24,6 +25,8 @@ const (
 
 const (
 	AccountStoreName    = "acc"
+	OracleStoreName     = "oracle"
+	BridgeStoreName     = "bridge"
 	ParamABCIPrefix     = "param"
 	TimeLockMsgRoute    = "timelock"
 	AtomicSwapStoreName = "atomic_swap"
@@ -70,6 +73,9 @@ type DexClient interface {
 	TransferIn(sequence int64, contractAddr msg.EthereumAddress,
 		senderAddr msg.EthereumAddress, receiverAddr types.AccAddress, amount types.Coin,
 		relayFee types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
+
+	GetProphecy(channelId uint8, sequence int64) (*msg.Prophecy, error)
+	GetCurrentSequence(channelId uint8) (int64, error)
 }
 
 func (c *HTTP) TxInfoSearch(query string, prove bool, page, perPage int) ([]Info, error) {
@@ -546,6 +552,7 @@ func (c *HTTP) SendToken(transfers []msg.Transfer, syncType SyncType, options ..
 		return nil, KeyMissingError
 	}
 	fromAddr := c.key.GetAddr()
+	println("from: ", fromAddr.String())
 	fromCoins := types.Coins{}
 	for _, t := range transfers {
 		t.Coins = t.Coins.Sort()
@@ -702,7 +709,7 @@ func (c *HTTP) TransferOutTimeout(sender types.AccAddress, amount types.Coin, ex
 	return c.broadcast(transferOutTimeOutMsg, syncType, options...)
 }
 
-func (c *HTTP) UpdateBind(sequence int64, symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
+func (c *HTTP) UpdateBind(sequence int64, symbol string, amount types.Int, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
 	if c.key == nil {
 		return nil, KeyMissingError
 	}
@@ -744,6 +751,48 @@ func (c *HTTP) broadcast(m msg.Msg, syncType SyncType, options ...tx.Option) (*c
 	default:
 		return nil, fmt.Errorf("unknown synctype")
 	}
+}
+
+func (c *HTTP) GetProphecy(channelId uint8, sequence int64) (*msg.Prophecy, error) {
+	key := []byte(msg.GetClaimId(channelId, sequence))
+	bz, err := c.QueryStore(key, OracleStoreName)
+	if err != nil {
+		return nil, err
+	}
+	if bz == nil {
+		return nil, nil
+	}
+
+	dbProphecy := new(msg.DBProphecy)
+	err = c.cdc.UnmarshalBinaryBare(bz, &dbProphecy)
+	if err != nil {
+		return nil, err
+	}
+
+	prophecy, err := dbProphecy.DeserializeFromDB()
+	if err != nil {
+		return nil, err
+	}
+
+	return &prophecy, err
+}
+
+func (c *HTTP) GetCurrentSequence(sequenceName string) (int64, error) {
+	key := []byte(sequenceName)
+	bz, err := c.QueryStore(key, BridgeStoreName)
+	if err != nil {
+		return 0, err
+	}
+	if bz == nil {
+		return 0, nil
+	}
+
+	sequence, err := strconv.ParseInt(string(bz), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return sequence, err
 }
 
 func (c *HTTP) sign(m msg.Msg, options ...tx.Option) ([]byte, error) {

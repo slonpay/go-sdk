@@ -47,6 +47,10 @@ func RegisterCodec(cdc *amino.Codec) {
 	cdc.RegisterConcrete(BindMsg{}, "bridge/BindMsg", nil)
 	cdc.RegisterConcrete(TransferOutMsg{}, "bridge/TransferOutMsg", nil)
 	cdc.RegisterConcrete(UpdateBindMsg{}, "bridge/UpdateBindMsg", nil)
+
+	cdc.RegisterConcrete(Prophecy{}, "oracle/Prophecy", nil)
+	cdc.RegisterConcrete(Status{}, "oracle/Status", nil)
+	cdc.RegisterConcrete(DBProphecy{}, "oracle/DBProphecy", nil)
 }
 
 func init() {
