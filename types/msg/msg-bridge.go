@@ -353,7 +353,7 @@ func (msg UpdateBindMsg) ValidateBasic() error {
 		return fmt.Errorf("symbol should not be empty")
 	}
 
-	if !msg.Amount.GT(NewInt(0)) {
+	if !msg.Amount.GT(sdk.NewInt(0)) {
 		return fmt.Errorf("amount should be larger than 0")
 	}
 
