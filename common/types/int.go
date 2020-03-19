@@ -13,6 +13,13 @@ func NewInt(n int64) Int {
 	return Int{big.NewInt(n)}
 }
 
+func NewIntFromBigInt(i *big.Int) Int {
+	if i.BitLen() > 255 {
+		panic("NewIntFromBigInt() out of bound")
+	}
+	return Int{i}
+}
+
 func (i Int) GT(i2 Int) bool {
 	return gt(i.i, i2.i)
 }
