@@ -11,10 +11,10 @@ type TransferInResult struct {
 }
 
 func (c *client) TransferIn(sequence int64, contractAddr msg.EthereumAddress,
-	senderAddr msg.EthereumAddress, receiverAddr sdk.AccAddress, amount sdk.Coin,
+	refundAddresses []msg.EthereumAddress, receiverAddresses []sdk.AccAddress, amounts []int64, symbol string,
 	relayFee sdk.Coin, expireTime int64, sync bool, options ...Option) (*TransferInResult, error) {
 	fromAddr := c.keyManager.GetAddr()
-	transferInMsg := msg.NewTransferInMsg(sequence, contractAddr, senderAddr, receiverAddr, amount,
+	transferInMsg := msg.NewTransferInMsg(sequence, contractAddr, refundAddresses, receiverAddresses, amounts, symbol,
 		relayFee, fromAddr, expireTime)
 	commit, err := c.broadcastMsg(transferInMsg, sync, options...)
 	if err != nil {

@@ -659,7 +659,7 @@ func (c *HTTP) CancelOrder(baseAssetSymbol, quoteAssetSymbol, refId string, sync
 }
 
 func (c *HTTP) TransferIn(sequence int64, contractAddr msg.EthereumAddress,
-	senderAddr msg.EthereumAddress, receiverAddr types.AccAddress, amount types.Coin,
+	refundAddresses []msg.EthereumAddress, receiverAddresses []types.AccAddress, amounts []int64, symbol string,
 	relayFee types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
 	if c.key == nil {
 		return nil, KeyMissingError
@@ -667,7 +667,7 @@ func (c *HTTP) TransferIn(sequence int64, contractAddr msg.EthereumAddress,
 
 	fromAddr := c.key.GetAddr()
 
-	transferInMsg := msg.NewTransferInMsg(sequence, contractAddr, senderAddr, receiverAddr, amount,
+	transferInMsg := msg.NewTransferInMsg(sequence, contractAddr, refundAddresses, receiverAddresses, amounts, symbol,
 		relayFee, fromAddr, expireTime)
 
 	return c.broadcast(transferInMsg, syncType, options...)

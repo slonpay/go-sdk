@@ -54,28 +54,30 @@ func (ethAddr *EthereumAddress) UnmarshalJSON(input []byte) error {
 }
 
 type TransferInMsg struct {
-	Sequence         int64           `json:"sequence"`
-	ContractAddress  EthereumAddress `json:"contract_address"`
-	SenderAddress    EthereumAddress `json:"sender_address"`
-	ReceiverAddress  sdk.AccAddress  `json:"receiver_address"`
-	Amount           sdk.Coin        `json:"amount"`
-	RelayFee         sdk.Coin        `json:"relay_fee"`
-	ValidatorAddress sdk.AccAddress  `json:"validator_address"`
-	ExpireTime       int64           `json:"expire_time"`
+	Sequence          int64             `json:"sequence"`
+	ContractAddress   EthereumAddress   `json:"contract_address"`
+	RefundAddresses   []EthereumAddress `json:"refund_addresses"`
+	ReceiverAddresses []sdk.AccAddress  `json:"receiver_addresses"`
+	Amounts           []int64           `json:"amounts"`
+	Symbol            string            `json:"symbol"`
+	RelayFee          sdk.Coin          `json:"relay_fee"`
+	ValidatorAddress  sdk.AccAddress    `json:"validator_address"`
+	ExpireTime        int64             `json:"expire_time"`
 }
 
 func NewTransferInMsg(sequence int64, contractAddr EthereumAddress,
-	senderAddr EthereumAddress, receiverAddr sdk.AccAddress, amount sdk.Coin,
+	refundAddresses []EthereumAddress, receiverAddresses []sdk.AccAddress, amounts []int64, symbol string,
 	relayFee sdk.Coin, validatorAddr sdk.AccAddress, expireTime int64) TransferInMsg {
 	return TransferInMsg{
-		Sequence:         sequence,
-		ContractAddress:  contractAddr,
-		SenderAddress:    senderAddr,
-		ReceiverAddress:  receiverAddr,
-		Amount:           amount,
-		RelayFee:         relayFee,
-		ValidatorAddress: validatorAddr,
-		ExpireTime:       expireTime,
+		Sequence:          sequence,
+		ContractAddress:   contractAddr,
+		RefundAddresses:   refundAddresses,
+		ReceiverAddresses: receiverAddresses,
+		Amounts:           amounts,
+		Symbol:            symbol,
+		RelayFee:          relayFee,
+		ValidatorAddress:  validatorAddr,
+		ExpireTime:        expireTime,
 	}
 }
 
@@ -87,9 +89,9 @@ func (msg TransferInMsg) GetSigners() []sdk.AccAddress {
 }
 
 func (msg TransferInMsg) String() string {
-	return fmt.Sprintf("TransferIn{%v#%s#%s#%s#%s#%s#%s#%d}",
-		msg.ValidatorAddress, msg.ContractAddress.String(), msg.SenderAddress.String(), msg.ReceiverAddress.String(),
-		msg.Amount.String(), msg.RelayFee.String(), msg.ValidatorAddress.String(), msg.ExpireTime)
+	return fmt.Sprintf("BatchTransferIn{%v#%s#%v#%v#%v#%s#%s#%s#%d}",
+		msg.ValidatorAddress, msg.ContractAddress.String(), msg.RefundAddresses, msg.ReceiverAddresses,
+		msg.Amounts, msg.RelayFee.String(), msg.Symbol, msg.ValidatorAddress.String(), msg.ExpireTime)
 }
 
 // GetSignBytes - Get the bytes for the message signer to sign on
@@ -116,20 +118,50 @@ func (msg TransferInMsg) ValidateBasic() error {
 	if msg.ContractAddress.IsEmpty() {
 		return fmt.Errorf("contract address should not be empty")
 	}
-	if msg.SenderAddress.IsEmpty() {
-		return fmt.Errorf("sender address should not be empty")
+	if len(msg.RefundAddresses) == 0 {
+		return fmt.Errorf("length of RefundAddresses should not be 0")
 	}
-	if len(msg.ReceiverAddress) != sdk.AddrLen {
-		return fmt.Errorf("lenghth of receiver address should be %d", sdk.AddrLen)
+
+	for _, addr := range msg.RefundAddresses {
+		if addr.IsEmpty() {
+			return fmt.Errorf("refund address should not be empty")
+		}
 	}
+
+	if len(msg.ReceiverAddresses) == 0 {
+		return fmt.Errorf("length of ReceiverAddresses should not be 0")
+	}
+
+	for _, addr := range msg.ReceiverAddresses {
+		if len(addr) != sdk.AddrLen {
+			return fmt.Errorf(fmt.Sprintf("length of receiver addreess should be %d", sdk.AddrLen))
+		}
+	}
+	if len(msg.Amounts) == 0 {
+		return fmt.Errorf("length of Amounts should not be 0")
+	}
+
+	for _, amount := range msg.Amounts {
+		if amount <= 0 {
+			return fmt.Errorf("amount to send should be positive")
+		}
+	}
+
+	if len(msg.RefundAddresses) != len(msg.ReceiverAddresses) ||
+		len(msg.RefundAddresses) != len(msg.Amounts) {
+		return fmt.Errorf("length of RefundAddresses, ReceiverAddresses, Amounts should be the same")
+	}
+
+	if len(msg.Symbol) == 0 {
+		return fmt.Errorf("length of symbol should not be 0")
+	}
+
 	if len(msg.ValidatorAddress) != sdk.AddrLen {
-		return fmt.Errorf("lenghth of validator address should be %d", sdk.AddrLen)
+		return fmt.Errorf(msg.ValidatorAddress.String())
 	}
-	if !msg.Amount.IsPositive() {
-		return fmt.Errorf("amount to send should be positive")
-	}
+
 	if !msg.RelayFee.IsPositive() {
-		return fmt.Errorf("amount to send should be positive")
+		return fmt.Errorf("relay fee amount should be positive")
 	}
 	return nil
 }
