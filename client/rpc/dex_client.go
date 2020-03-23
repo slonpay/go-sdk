@@ -71,7 +71,7 @@ type DexClient interface {
 	Bind(symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimals int8, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	TransferOut(to msg.EthereumAddress, amount types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	TransferIn(sequence int64, contractAddr msg.EthereumAddress,
-		senderAddr msg.EthereumAddress, receiverAddr types.AccAddress, amount types.Coin,
+		refundAddresses []msg.EthereumAddress, receiverAddresses []types.AccAddress, amounts []int64, symbol string,
 		relayFee types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 
 	GetProphecy(channelId uint8, sequence int64) (*msg.Prophecy, error)
