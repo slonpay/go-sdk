@@ -16,11 +16,11 @@ const (
 	RouteBridge     = "bridge"
 	MaxDecimal  int = 18
 
-	TransferInMsgType         = "crossTransferIn"
-	TransferOutTimeoutMsgType = "crossTransferOutTimeout"
-	BindMsgType               = "crossBind"
-	TransferOutMsgType        = "crossTransferOut"
-	UpdateBindMsgType         = "crossUpdateBind"
+	TransferInMsgType        = "crossTransferIn"
+	UpdateTransferOutMsgType = "crossUpdateTransferOut"
+	BindMsgType              = "crossBind"
+	TransferOutMsgType       = "crossTransferOut"
+	UpdateBindMsgType        = "crossUpdateBind"
 )
 
 // EthereumAddress defines a standard ethereum address
@@ -166,35 +166,46 @@ func (msg TransferInMsg) ValidateBasic() error {
 	return nil
 }
 
-type TransferOutTimeoutMsg struct {
-	SenderAddress    sdk.AccAddress `json:"sender_address"`
-	Sequence         int64          `json:"sequence"`
-	Amount           sdk.Coin       `json:"amount"`
-	ValidatorAddress sdk.AccAddress `json:"validator_address"`
+type TransferOutStatus int8
+
+const (
+	TransferOutStatusRejected         TransferOutStatus = 1
+	TransferOutStatusTimeout          TransferOutStatus = 2
+	TransferOutStatusInvalidParameter TransferOutStatus = 3
+)
+
+type UpdateTransferOutMsg struct {
+	SenderAddress    sdk.AccAddress    `json:"sender_address"`
+	Sequence         int64             `json:"sequence"`
+	Amount           sdk.Coin          `json:"amount"`
+	Status           TransferOutStatus `json:"status"`
+	ValidatorAddress sdk.AccAddress    `json:"validator_address"`
 }
 
-func NewTransferOutTimeoutMsg(senderAddr sdk.AccAddress, sequence int64, amount sdk.Coin, validatorAddr sdk.AccAddress) TransferOutTimeoutMsg {
-	return TransferOutTimeoutMsg{
+func NewUpdateTransferOutMsg(senderAddr sdk.AccAddress, sequence int64, amount sdk.Coin,
+	validatorAddr sdk.AccAddress, status TransferOutStatus) UpdateTransferOutMsg {
+	return UpdateTransferOutMsg{
 		SenderAddress:    senderAddr,
 		Sequence:         sequence,
 		Amount:           amount,
 		ValidatorAddress: validatorAddr,
+		Status:           status,
 	}
 }
 
 // nolint
-func (msg TransferOutTimeoutMsg) Route() string { return RouteBridge }
-func (msg TransferOutTimeoutMsg) Type() string  { return TransferOutTimeoutMsgType }
-func (msg TransferOutTimeoutMsg) GetSigners() []sdk.AccAddress {
+func (msg UpdateTransferOutMsg) Route() string { return RouteBridge }
+func (msg UpdateTransferOutMsg) Type() string  { return UpdateTransferOutMsgType }
+func (msg UpdateTransferOutMsg) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msg.ValidatorAddress}
 }
-func (msg TransferOutTimeoutMsg) String() string {
-	return fmt.Sprintf("TransferOutTimeout{%s#%d#%s#%s}",
+func (msg UpdateTransferOutMsg) String() string {
+	return fmt.Sprintf("UpdateTransferOut{%s#%d#%s#%s}",
 		msg.SenderAddress.String(), msg.Sequence, msg.Amount.String(), msg.ValidatorAddress.String())
 }
 
 // GetSignBytes - Get the bytes for the message signer to sign on
-func (msg TransferOutTimeoutMsg) GetSignBytes() []byte {
+func (msg UpdateTransferOutMsg) GetSignBytes() []byte {
 	b, err := json.Marshal(msg)
 	if err != nil {
 		panic(err)
@@ -202,12 +213,12 @@ func (msg TransferOutTimeoutMsg) GetSignBytes() []byte {
 	return b
 }
 
-func (msg TransferOutTimeoutMsg) GetInvolvedAddresses() []sdk.AccAddress {
+func (msg UpdateTransferOutMsg) GetInvolvedAddresses() []sdk.AccAddress {
 	return msg.GetSigners()
 }
 
 // ValidateBasic is used to quickly disqualify obviously invalid messages quickly
-func (msg TransferOutTimeoutMsg) ValidateBasic() error {
+func (msg UpdateTransferOutMsg) ValidateBasic() error {
 	if len(msg.SenderAddress) != sdk.AddrLen {
 		return fmt.Errorf("lenghth of sender address should be %d", sdk.AddrLen)
 	}
@@ -219,6 +230,11 @@ func (msg TransferOutTimeoutMsg) ValidateBasic() error {
 	}
 	if !msg.Amount.IsPositive() {
 		return fmt.Errorf("amount to send should be positive")
+	}
+	if msg.Status != TransferOutStatusRejected &&
+		msg.Status != TransferOutStatusTimeout &&
+		msg.Status != TransferOutStatusInvalidParameter {
+		return fmt.Errorf("status(%d) does not exist", msg.Status)
 	}
 	return nil
 }
