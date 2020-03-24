@@ -166,30 +166,30 @@ func (msg TransferInMsg) ValidateBasic() error {
 	return nil
 }
 
-type TransferOutStatus int8
+type RefundReason uint16
 
 const (
-	TransferOutStatusRejected         TransferOutStatus = 1
-	TransferOutStatusTimeout          TransferOutStatus = 2
-	TransferOutStatusInvalidParameter TransferOutStatus = 3
+	UnboundToken        RefundReason = 1
+	Timeout             RefundReason = 2
+	InsufficientBalance RefundReason = 3
 )
 
 type UpdateTransferOutMsg struct {
-	SenderAddress    sdk.AccAddress    `json:"sender_address"`
-	Sequence         int64             `json:"sequence"`
-	Amount           sdk.Coin          `json:"amount"`
-	Status           TransferOutStatus `json:"status"`
-	ValidatorAddress sdk.AccAddress    `json:"validator_address"`
+	RefundAddress    sdk.AccAddress `json:"refund_address"`
+	Sequence         int64          `json:"sequence"`
+	Amount           sdk.Coin       `json:"amount"`
+	RefundReason     RefundReason   `json:"refund_reason"`
+	ValidatorAddress sdk.AccAddress `json:"validator_address"`
 }
 
-func NewUpdateTransferOutMsg(senderAddr sdk.AccAddress, sequence int64, amount sdk.Coin,
-	validatorAddr sdk.AccAddress, status TransferOutStatus) UpdateTransferOutMsg {
+func NewUpdateTransferOutMsg(refundAddr sdk.AccAddress, sequence int64, amount sdk.Coin,
+	validatorAddr sdk.AccAddress, refundReason RefundReason) UpdateTransferOutMsg {
 	return UpdateTransferOutMsg{
-		SenderAddress:    senderAddr,
+		RefundAddress:    refundAddr,
 		Sequence:         sequence,
 		Amount:           amount,
 		ValidatorAddress: validatorAddr,
-		Status:           status,
+		RefundReason:     refundReason,
 	}
 }
 
@@ -201,7 +201,7 @@ func (msg UpdateTransferOutMsg) GetSigners() []sdk.AccAddress {
 }
 func (msg UpdateTransferOutMsg) String() string {
 	return fmt.Sprintf("UpdateTransferOut{%s#%d#%s#%s}",
-		msg.SenderAddress.String(), msg.Sequence, msg.Amount.String(), msg.ValidatorAddress.String())
+		msg.RefundAddress.String(), msg.Sequence, msg.Amount.String(), msg.ValidatorAddress.String())
 }
 
 // GetSignBytes - Get the bytes for the message signer to sign on
@@ -219,22 +219,22 @@ func (msg UpdateTransferOutMsg) GetInvolvedAddresses() []sdk.AccAddress {
 
 // ValidateBasic is used to quickly disqualify obviously invalid messages quickly
 func (msg UpdateTransferOutMsg) ValidateBasic() error {
-	if len(msg.SenderAddress) != sdk.AddrLen {
-		return fmt.Errorf("lenghth of sender address should be %d", sdk.AddrLen)
+	if len(msg.RefundAddress) != sdk.AddrLen {
+		return fmt.Errorf(fmt.Sprintf("length of refund addreess should be %d", sdk.AddrLen))
 	}
 	if msg.Sequence < 0 {
 		return fmt.Errorf("sequence should not be less than 0")
 	}
 	if len(msg.ValidatorAddress) != sdk.AddrLen {
-		return fmt.Errorf("lenghth of validator address should be %d", sdk.AddrLen)
+		return fmt.Errorf(fmt.Sprintf("length of validator addreess should be %d", sdk.AddrLen))
 	}
 	if !msg.Amount.IsPositive() {
 		return fmt.Errorf("amount to send should be positive")
 	}
-	if msg.Status != TransferOutStatusRejected &&
-		msg.Status != TransferOutStatusTimeout &&
-		msg.Status != TransferOutStatusInvalidParameter {
-		return fmt.Errorf("status(%d) does not exist", msg.Status)
+	if msg.RefundReason != UnboundToken &&
+		msg.RefundReason != Timeout &&
+		msg.RefundReason != InsufficientBalance {
+		return fmt.Errorf("refund reason(%d) does not exist", msg.RefundReason)
 	}
 	return nil
 }

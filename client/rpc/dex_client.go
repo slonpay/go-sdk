@@ -67,7 +67,7 @@ type DexClient interface {
 	RefundHTLT(swapID []byte, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 
 	UpdateBind(sequence int64, symbol string, amount types.Int, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
-	UpdateTransferOut(sequence int64, sender types.AccAddress, amount types.Coin, status msg.TransferOutStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
+	UpdateTransferOut(sequence int64, refundAddr types.AccAddress, amount types.Coin, refundReason msg.RefundReason, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	Bind(symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimals int8, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	TransferOut(to msg.EthereumAddress, amount types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	TransferIn(sequence int64, contractAddr msg.EthereumAddress,
@@ -697,13 +697,13 @@ func (c *HTTP) Bind(symbol string, amount int64, contractAddress msg.EthereumAdd
 	return c.broadcast(bindMsg, syncType, options...)
 }
 
-func (c *HTTP) UpdateTransferOut(sequence int64, sender types.AccAddress, amount types.Coin, status msg.TransferOutStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
+func (c *HTTP) UpdateTransferOut(sequence int64, refundAddr types.AccAddress, amount types.Coin, refundReason msg.RefundReason, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
 	if c.key == nil {
 		return nil, KeyMissingError
 	}
 
 	fromAddr := c.key.GetAddr()
-	updateTransferOutMsg := msg.NewUpdateTransferOutMsg(sender, sequence, amount, fromAddr, status)
+	updateTransferOutMsg := msg.NewUpdateTransferOutMsg(refundAddr, sequence, amount, fromAddr, refundReason)
 
 	return c.broadcast(updateTransferOutMsg, syncType, options...)
 }

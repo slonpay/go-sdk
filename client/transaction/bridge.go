@@ -55,9 +55,9 @@ type UpdateTransferOutResult struct {
 	tx.TxCommitResult
 }
 
-func (c *client) UpdateTransferOut(sequence int64, sender sdk.AccAddress, amount sdk.Coin, status msg.TransferOutStatus, sync bool, options ...Option) (*UpdateTransferOutResult, error) {
+func (c *client) UpdateTransferOut(sequence int64, refundAddr sdk.AccAddress, amount sdk.Coin, refundReason msg.RefundReason, sync bool, options ...Option) (*UpdateTransferOutResult, error) {
 	fromAddr := c.keyManager.GetAddr()
-	transferOutTimeOutMsg := msg.NewUpdateTransferOutMsg(sender, sequence, amount, fromAddr, status)
+	transferOutTimeOutMsg := msg.NewUpdateTransferOutMsg(refundAddr, sequence, amount, fromAddr, refundReason)
 	commit, err := c.broadcastMsg(transferOutTimeOutMsg, sync, options...)
 	if err != nil {
 		return nil, err
