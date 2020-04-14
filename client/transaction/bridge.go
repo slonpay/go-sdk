@@ -1,6 +1,9 @@
 package transaction
 
 import (
+	"encoding/json"
+	"strings"
+
 	sdk "github.com/binance-chain/go-sdk/common/types"
 	"github.com/binance-chain/go-sdk/types/msg"
 	"github.com/binance-chain/go-sdk/types/tx"
@@ -14,9 +17,24 @@ func (c *client) TransferIn(sequence int64, contractAddr msg.EthereumAddress,
 	refundAddresses []msg.EthereumAddress, receiverAddresses []sdk.AccAddress, amounts []int64, symbol string,
 	relayFee sdk.Coin, expireTime int64, sync bool, options ...Option) (*TransferInResult, error) {
 	fromAddr := c.keyManager.GetAddr()
-	transferInMsg := msg.NewTransferInMsg(sequence, contractAddr, refundAddresses, receiverAddresses, amounts, symbol,
-		relayFee, fromAddr, expireTime)
-	commit, err := c.broadcastMsg(transferInMsg, sync, options...)
+	claim := msg.TransferInClaim{
+		ContractAddress:   contractAddr,
+		RefundAddresses:   refundAddresses,
+		ReceiverAddresses: receiverAddresses,
+		Amounts:           amounts,
+		Symbol:            symbol,
+		RelayFee:          relayFee,
+		ExpireTime:        expireTime,
+	}
+
+	claimBz, err := json.Marshal(claim)
+	if err != nil {
+		return nil, err
+	}
+
+	claimMsg := msg.NewClaimMsg(msg.ClaimTypeTransferIn, sequence, string(claimBz), fromAddr)
+
+	commit, err := c.broadcastMsg(claimMsg, sync, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -57,8 +75,20 @@ type UpdateTransferOutResult struct {
 
 func (c *client) UpdateTransferOut(sequence int64, refundAddr sdk.AccAddress, amount sdk.Coin, refundReason msg.RefundReason, sync bool, options ...Option) (*UpdateTransferOutResult, error) {
 	fromAddr := c.keyManager.GetAddr()
-	transferOutTimeOutMsg := msg.NewUpdateTransferOutMsg(refundAddr, sequence, amount, fromAddr, refundReason)
-	commit, err := c.broadcastMsg(transferOutTimeOutMsg, sync, options...)
+	claim := msg.UpdateTransferOutClaim{
+		RefundAddress: refundAddr,
+		Amount:        amount,
+		RefundReason:  refundReason,
+	}
+
+	claimBz, err := json.Marshal(claim)
+	if err != nil {
+		return nil, err
+	}
+
+	claimMsg := msg.NewClaimMsg(msg.ClaimTypeUpdateTransferOut, sequence, string(claimBz), fromAddr)
+
+	commit, err := c.broadcastMsg(claimMsg, sync, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +101,22 @@ type UpdateBindResult struct {
 
 func (c *client) UpdateBind(sequence int64, symbol string, amount sdk.Int, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, sync bool, options ...Option) (*UpdateBindResult, error) {
 	fromAddr := c.keyManager.GetAddr()
-	updateBindMsg := msg.NewUpdateBindMsg(sequence, fromAddr, symbol, amount, contractAddress, contractDecimals, status)
-	commit, err := c.broadcastMsg(updateBindMsg, sync, options...)
+	claim := msg.UpdateBindClaim{
+		Status:           status,
+		Symbol:           strings.ToUpper(symbol),
+		Amount:           amount,
+		ContractAddress:  contractAddress,
+		ContractDecimals: contractDecimals,
+	}
+
+	claimBz, err := json.Marshal(claim)
+	if err != nil {
+		return nil, err
+	}
+
+	claimMsg := msg.NewClaimMsg(msg.ClaimTypeUpdateBind, sequence, string(claimBz), fromAddr)
+
+	commit, err := c.broadcastMsg(claimMsg, sync, options...)
 	if err != nil {
 		return nil, err
 	}

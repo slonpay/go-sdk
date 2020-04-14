@@ -13,14 +13,10 @@ import (
 )
 
 const (
-	RouteBridge     = "bridge"
-	MaxDecimal  int = 18
+	RouteBridge = "bridge"
 
-	TransferInMsgType        = "crossTransferIn"
-	UpdateTransferOutMsgType = "crossUpdateTransferOut"
-	BindMsgType              = "crossBind"
-	TransferOutMsgType       = "crossTransferOut"
-	UpdateBindMsgType        = "crossUpdateBind"
+	BindMsgType        = "crossBind"
+	TransferOutMsgType = "crossTransferOut"
 )
 
 // EthereumAddress defines a standard ethereum address
@@ -53,117 +49,33 @@ func (ethAddr *EthereumAddress) UnmarshalJSON(input []byte) error {
 	return hexutil.UnmarshalFixedJSON(reflect.TypeOf(gethCommon.Address{}), input, ethAddr[:])
 }
 
-type TransferInMsg struct {
-	Sequence          int64             `json:"sequence"`
+type TransferInClaim struct {
 	ContractAddress   EthereumAddress   `json:"contract_address"`
 	RefundAddresses   []EthereumAddress `json:"refund_addresses"`
 	ReceiverAddresses []sdk.AccAddress  `json:"receiver_addresses"`
 	Amounts           []int64           `json:"amounts"`
 	Symbol            string            `json:"symbol"`
 	RelayFee          sdk.Coin          `json:"relay_fee"`
-	ValidatorAddress  sdk.AccAddress    `json:"validator_address"`
 	ExpireTime        int64             `json:"expire_time"`
 }
 
-func NewTransferInMsg(sequence int64, contractAddr EthereumAddress,
-	refundAddresses []EthereumAddress, receiverAddresses []sdk.AccAddress, amounts []int64, symbol string,
-	relayFee sdk.Coin, validatorAddr sdk.AccAddress, expireTime int64) TransferInMsg {
-	return TransferInMsg{
-		Sequence:          sequence,
-		ContractAddress:   contractAddr,
-		RefundAddresses:   refundAddresses,
-		ReceiverAddresses: receiverAddresses,
-		Amounts:           amounts,
-		Symbol:            symbol,
-		RelayFee:          relayFee,
-		ValidatorAddress:  validatorAddr,
-		ExpireTime:        expireTime,
-	}
+type UpdateTransferOutClaim struct {
+	RefundAddress sdk.AccAddress `json:"refund_address"`
+	Amount        sdk.Coin       `json:"amount"`
+	RefundReason  RefundReason   `json:"refund_reason"`
 }
 
-// nolint
-func (msg TransferInMsg) Route() string { return RouteBridge }
-func (msg TransferInMsg) Type() string  { return TransferInMsgType }
-func (msg TransferInMsg) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{msg.ValidatorAddress}
+type UpdateBindClaim struct {
+	Status           BindStatus      `json:"status"`
+	Symbol           string          `json:"symbol"`
+	Amount           sdk.Int         `json:"amount"`
+	ContractAddress  EthereumAddress `json:"contract_address"`
+	ContractDecimals int8            `json:"contract_decimals"`
 }
 
-func (msg TransferInMsg) String() string {
-	return fmt.Sprintf("BatchTransferIn{%v#%s#%v#%v#%v#%s#%s#%s#%d}",
-		msg.ValidatorAddress, msg.ContractAddress.String(), msg.RefundAddresses, msg.ReceiverAddresses,
-		msg.Amounts, msg.RelayFee.String(), msg.Symbol, msg.ValidatorAddress.String(), msg.ExpireTime)
-}
-
-// GetSignBytes - Get the bytes for the message signer to sign on
-func (msg TransferInMsg) GetSignBytes() []byte {
-	b, err := json.Marshal(msg)
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
-func (msg TransferInMsg) GetInvolvedAddresses() []sdk.AccAddress {
-	return msg.GetSigners()
-}
-
-// ValidateBasic is used to quickly disqualify obviously invalid messages quickly
-func (msg TransferInMsg) ValidateBasic() error {
-	if msg.Sequence < 0 {
-		return fmt.Errorf("sequence should not be less than 0")
-	}
-	if msg.ExpireTime <= 0 {
-		return fmt.Errorf("expire time should be larger than 0")
-	}
-	if msg.ContractAddress.IsEmpty() {
-		return fmt.Errorf("contract address should not be empty")
-	}
-	if len(msg.RefundAddresses) == 0 {
-		return fmt.Errorf("length of RefundAddresses should not be 0")
-	}
-
-	for _, addr := range msg.RefundAddresses {
-		if addr.IsEmpty() {
-			return fmt.Errorf("refund address should not be empty")
-		}
-	}
-
-	if len(msg.ReceiverAddresses) == 0 {
-		return fmt.Errorf("length of ReceiverAddresses should not be 0")
-	}
-
-	for _, addr := range msg.ReceiverAddresses {
-		if len(addr) != sdk.AddrLen {
-			return fmt.Errorf(fmt.Sprintf("length of receiver addreess should be %d", sdk.AddrLen))
-		}
-	}
-	if len(msg.Amounts) == 0 {
-		return fmt.Errorf("length of Amounts should not be 0")
-	}
-
-	for _, amount := range msg.Amounts {
-		if amount <= 0 {
-			return fmt.Errorf("amount to send should be positive")
-		}
-	}
-
-	if len(msg.RefundAddresses) != len(msg.ReceiverAddresses) ||
-		len(msg.RefundAddresses) != len(msg.Amounts) {
-		return fmt.Errorf("length of RefundAddresses, ReceiverAddresses, Amounts should be the same")
-	}
-
-	if len(msg.Symbol) == 0 {
-		return fmt.Errorf("length of symbol should not be 0")
-	}
-
-	if len(msg.ValidatorAddress) != sdk.AddrLen {
-		return fmt.Errorf(msg.ValidatorAddress.String())
-	}
-
-	if !msg.RelayFee.IsPositive() {
-		return fmt.Errorf("relay fee amount should be positive")
-	}
-	return nil
+type SkipSequenceClaim struct {
+	ClaimType ClaimType `json:"claim_type"`
+	Sequence  int64     `json:"sequence"`
 }
 
 type RefundReason uint16
@@ -173,71 +85,6 @@ const (
 	Timeout             RefundReason = 2
 	InsufficientBalance RefundReason = 3
 )
-
-type UpdateTransferOutMsg struct {
-	RefundAddress    sdk.AccAddress `json:"refund_address"`
-	Sequence         int64          `json:"sequence"`
-	Amount           sdk.Coin       `json:"amount"`
-	RefundReason     RefundReason   `json:"refund_reason"`
-	ValidatorAddress sdk.AccAddress `json:"validator_address"`
-}
-
-func NewUpdateTransferOutMsg(refundAddr sdk.AccAddress, sequence int64, amount sdk.Coin,
-	validatorAddr sdk.AccAddress, refundReason RefundReason) UpdateTransferOutMsg {
-	return UpdateTransferOutMsg{
-		RefundAddress:    refundAddr,
-		Sequence:         sequence,
-		Amount:           amount,
-		ValidatorAddress: validatorAddr,
-		RefundReason:     refundReason,
-	}
-}
-
-// nolint
-func (msg UpdateTransferOutMsg) Route() string { return RouteBridge }
-func (msg UpdateTransferOutMsg) Type() string  { return UpdateTransferOutMsgType }
-func (msg UpdateTransferOutMsg) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{msg.ValidatorAddress}
-}
-func (msg UpdateTransferOutMsg) String() string {
-	return fmt.Sprintf("UpdateTransferOut{%s#%d#%s#%s}",
-		msg.RefundAddress.String(), msg.Sequence, msg.Amount.String(), msg.ValidatorAddress.String())
-}
-
-// GetSignBytes - Get the bytes for the message signer to sign on
-func (msg UpdateTransferOutMsg) GetSignBytes() []byte {
-	b, err := json.Marshal(msg)
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
-func (msg UpdateTransferOutMsg) GetInvolvedAddresses() []sdk.AccAddress {
-	return msg.GetSigners()
-}
-
-// ValidateBasic is used to quickly disqualify obviously invalid messages quickly
-func (msg UpdateTransferOutMsg) ValidateBasic() error {
-	if len(msg.RefundAddress) != sdk.AddrLen {
-		return fmt.Errorf(fmt.Sprintf("length of refund addreess should be %d", sdk.AddrLen))
-	}
-	if msg.Sequence < 0 {
-		return fmt.Errorf("sequence should not be less than 0")
-	}
-	if len(msg.ValidatorAddress) != sdk.AddrLen {
-		return fmt.Errorf(fmt.Sprintf("length of validator addreess should be %d", sdk.AddrLen))
-	}
-	if !msg.Amount.IsPositive() {
-		return fmt.Errorf("amount to send should be positive")
-	}
-	if msg.RefundReason != UnboundToken &&
-		msg.RefundReason != Timeout &&
-		msg.RefundReason != InsufficientBalance {
-		return fmt.Errorf("refund reason(%d) does not exist", msg.RefundReason)
-	}
-	return nil
-}
 
 type BindMsg struct {
 	From             sdk.AccAddress  `json:"from"`
@@ -361,64 +208,3 @@ const (
 	BindStatusTimeout          BindStatus = 2
 	BindStatusInvalidParameter BindStatus = 3
 )
-
-type UpdateBindMsg struct {
-	Sequence         int64           `json:"sequence"`
-	Status           BindStatus      `json:"status"`
-	Symbol           string          `json:"symbol"`
-	Amount           sdk.Int         `json:"amount"`
-	ContractAddress  EthereumAddress `json:"contract_address"`
-	ContractDecimals int8            `json:"contract_decimals"`
-	ValidatorAddress sdk.AccAddress  `json:"validator_address"`
-}
-
-func NewUpdateBindMsg(sequence int64, validatorAddress sdk.AccAddress, symbol string, amount sdk.Int, contractAddress EthereumAddress, contractDecimals int8, status BindStatus) UpdateBindMsg {
-	return UpdateBindMsg{
-		Sequence:         sequence,
-		ValidatorAddress: validatorAddress,
-		Amount:           amount,
-		Symbol:           symbol,
-		ContractAddress:  contractAddress,
-		ContractDecimals: contractDecimals,
-		Status:           status,
-	}
-}
-
-func (msg UpdateBindMsg) Route() string { return RouteBridge }
-func (msg UpdateBindMsg) Type() string  { return UpdateBindMsgType }
-func (msg UpdateBindMsg) String() string {
-	return fmt.Sprintf("UpdateBind{%v#%s#%d$%s#%d#%d}", msg.ValidatorAddress, msg.Symbol, msg.Amount, msg.ContractAddress.String(), msg.ContractDecimals, msg.Status)
-}
-func (msg UpdateBindMsg) GetInvolvedAddresses() []sdk.AccAddress { return msg.GetSigners() }
-func (msg UpdateBindMsg) GetSigners() []sdk.AccAddress           { return []sdk.AccAddress{msg.ValidatorAddress} }
-
-func (msg UpdateBindMsg) ValidateBasic() error {
-	if len(msg.ValidatorAddress) != sdk.AddrLen {
-		return fmt.Errorf("address length should be %d", sdk.AddrLen)
-	}
-
-	if len(msg.Symbol) == 0 {
-		return fmt.Errorf("symbol should not be empty")
-	}
-
-	if !msg.Amount.GT(sdk.NewInt(0)) {
-		return fmt.Errorf("amount should be larger than 0")
-	}
-
-	if msg.ContractAddress.IsEmpty() {
-		return fmt.Errorf("contract address should not be empty")
-	}
-
-	if msg.ContractDecimals < 0 {
-		return fmt.Errorf("decimal should be no less than 0")
-	}
-
-	return nil
-}
-func (msg UpdateBindMsg) GetSignBytes() []byte {
-	b, err := json.Marshal(msg) // XXX: ensure some canonical form
-	if err != nil {
-		panic(err)
-	}
-	return b
-}

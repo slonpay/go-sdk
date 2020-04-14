@@ -1,9 +1,11 @@
 package rpc
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	core_types "github.com/tendermint/tendermint/rpc/core/types"
 
@@ -74,8 +76,8 @@ type DexClient interface {
 		refundAddresses []msg.EthereumAddress, receiverAddresses []types.AccAddress, amounts []int64, symbol string,
 		relayFee types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 
-	GetProphecy(channelId uint8, sequence int64) (*msg.Prophecy, error)
-	GetCurrentSequence(channelId string) (int64, error)
+	GetProphecy(claimType msg.ClaimType, sequence int64) (*msg.Prophecy, error)
+	GetCurrentSequence(claimType msg.ClaimType) (int64, error)
 }
 
 func (c *HTTP) TxInfoSearch(query string, prove bool, page, perPage int) ([]Info, error) {
@@ -667,10 +669,24 @@ func (c *HTTP) TransferIn(sequence int64, contractAddr msg.EthereumAddress,
 
 	fromAddr := c.key.GetAddr()
 
-	transferInMsg := msg.NewTransferInMsg(sequence, contractAddr, refundAddresses, receiverAddresses, amounts, symbol,
-		relayFee, fromAddr, expireTime)
+	claim := msg.TransferInClaim{
+		ContractAddress:   contractAddr,
+		RefundAddresses:   refundAddresses,
+		ReceiverAddresses: receiverAddresses,
+		Amounts:           amounts,
+		Symbol:            symbol,
+		RelayFee:          relayFee,
+		ExpireTime:        expireTime,
+	}
 
-	return c.broadcast(transferInMsg, syncType, options...)
+	claimBz, err := json.Marshal(claim)
+	if err != nil {
+		return nil, err
+	}
+
+	claimMsg := msg.NewClaimMsg(msg.ClaimTypeTransferIn, sequence, string(claimBz), fromAddr)
+
+	return c.broadcast(claimMsg, syncType, options...)
 }
 
 func (c *HTTP) TransferOut(to msg.EthereumAddress, amount types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
@@ -703,9 +719,21 @@ func (c *HTTP) UpdateTransferOut(sequence int64, refundAddr types.AccAddress, am
 	}
 
 	fromAddr := c.key.GetAddr()
-	updateTransferOutMsg := msg.NewUpdateTransferOutMsg(refundAddr, sequence, amount, fromAddr, refundReason)
 
-	return c.broadcast(updateTransferOutMsg, syncType, options...)
+	claim := msg.UpdateTransferOutClaim{
+		RefundAddress: refundAddr,
+		Amount:        amount,
+		RefundReason:  refundReason,
+	}
+
+	claimBz, err := json.Marshal(claim)
+	if err != nil {
+		return nil, err
+	}
+
+	claimMsg := msg.NewClaimMsg(msg.ClaimTypeUpdateTransferOut, sequence, string(claimBz), fromAddr)
+
+	return c.broadcast(claimMsg, syncType, options...)
 }
 
 func (c *HTTP) UpdateBind(sequence int64, symbol string, amount types.Int, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
@@ -714,8 +742,23 @@ func (c *HTTP) UpdateBind(sequence int64, symbol string, amount types.Int, contr
 	}
 
 	fromAddr := c.key.GetAddr()
-	updateBindMsg := msg.NewUpdateBindMsg(sequence, fromAddr, symbol, amount, contractAddress, contractDecimals, status)
-	return c.broadcast(updateBindMsg, syncType, options...)
+
+	claim := msg.UpdateBindClaim{
+		Status:           status,
+		Symbol:           strings.ToUpper(symbol),
+		Amount:           amount,
+		ContractAddress:  contractAddress,
+		ContractDecimals: contractDecimals,
+	}
+
+	claimBz, err := json.Marshal(claim)
+	if err != nil {
+		return nil, err
+	}
+
+	claimMsg := msg.NewClaimMsg(msg.ClaimTypeUpdateBind, sequence, string(claimBz), fromAddr)
+
+	return c.broadcast(claimMsg, syncType, options...)
 }
 
 func (c *HTTP) broadcast(m msg.Msg, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
@@ -752,8 +795,8 @@ func (c *HTTP) broadcast(m msg.Msg, syncType SyncType, options ...tx.Option) (*c
 	}
 }
 
-func (c *HTTP) GetProphecy(channelId uint8, sequence int64) (*msg.Prophecy, error) {
-	key := []byte(msg.GetClaimId(channelId, sequence))
+func (c *HTTP) GetProphecy(claimType msg.ClaimType, sequence int64) (*msg.Prophecy, error) {
+	key := []byte(msg.GetClaimId(claimType, sequence))
 	bz, err := c.QueryStore(key, OracleStoreName)
 	if err != nil {
 		return nil, err
@@ -776,9 +819,9 @@ func (c *HTTP) GetProphecy(channelId uint8, sequence int64) (*msg.Prophecy, erro
 	return &prophecy, err
 }
 
-func (c *HTTP) GetCurrentSequence(sequenceName string) (int64, error) {
-	key := []byte(sequenceName)
-	bz, err := c.QueryStore(key, BridgeStoreName)
+func (c *HTTP) GetCurrentSequence(claimType msg.ClaimType) (int64, error) {
+	key := []byte(msg.GetClaimTypeSequence(claimType))
+	bz, err := c.QueryStore(key, OracleStoreName)
 	if err != nil {
 		return 0, err
 	}

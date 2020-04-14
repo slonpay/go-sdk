@@ -42,15 +42,14 @@ func RegisterCodec(cdc *amino.Codec) {
 	cdc.RegisterConcrete(MsgRemoveValidator{}, "cosmos-sdk/MsgRemoveValidator", nil)
 	cdc.RegisterConcrete(MsgCreateValidatorProposal{}, "cosmos-sdk/MsgCreateValidatorProposal", nil)
 
-	cdc.RegisterConcrete(TransferInMsg{}, "bridge/TransferInMsg", nil)
-	cdc.RegisterConcrete(UpdateTransferOutMsg{}, "bridge/UpdateTransferOutMsg", nil)
 	cdc.RegisterConcrete(BindMsg{}, "bridge/BindMsg", nil)
 	cdc.RegisterConcrete(TransferOutMsg{}, "bridge/TransferOutMsg", nil)
-	cdc.RegisterConcrete(UpdateBindMsg{}, "bridge/UpdateBindMsg", nil)
 
+	cdc.RegisterConcrete(Claim{}, "oracle/Claim", nil)
 	cdc.RegisterConcrete(Prophecy{}, "oracle/Prophecy", nil)
 	cdc.RegisterConcrete(Status{}, "oracle/Status", nil)
 	cdc.RegisterConcrete(DBProphecy{}, "oracle/DBProphecy", nil)
+	cdc.RegisterConcrete(ClaimMsg{}, "oracle/ClaimMsg", nil)
 }
 
 func init() {

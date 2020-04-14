@@ -235,15 +235,3 @@ func (dbProphecy DBProphecy) DeserializeFromDB() (Prophecy, error) {
 		ValidatorClaims: validatorClaims,
 	}, nil
 }
-
-const (
-	ClaimIdDelimiter = "-"
-
-	TransferInChannelId        uint8 = 1
-	UpdateTransferOutChannelId uint8 = 2
-	UpdateBindChannelId        uint8 = 3
-)
-
-func GetClaimId(channel uint8, sequence int64) string {
-	return strconv.FormatInt(int64(channel), 10) + ClaimIdDelimiter + strconv.FormatInt(sequence, 10)
-}
