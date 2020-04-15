@@ -84,6 +84,7 @@ const (
 	UnboundToken        RefundReason = 1
 	Timeout             RefundReason = 2
 	InsufficientBalance RefundReason = 3
+	Unknown             RefundReason = 4
 )
 
 type BindMsg struct {
