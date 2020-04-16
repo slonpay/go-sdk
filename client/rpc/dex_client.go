@@ -1,10 +1,10 @@
 package rpc
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	core_types "github.com/tendermint/tendermint/rpc/core/types"
@@ -820,7 +820,7 @@ func (c *HTTP) GetProphecy(claimType msg.ClaimType, sequence int64) (*msg.Prophe
 }
 
 func (c *HTTP) GetCurrentSequence(claimType msg.ClaimType) (int64, error) {
-	key := []byte(msg.GetClaimTypeSequence(claimType))
+	key := msg.GetClaimTypeSequence(claimType)
 	bz, err := c.QueryStore(key, OracleStoreName)
 	if err != nil {
 		return 0, err
@@ -829,12 +829,9 @@ func (c *HTTP) GetCurrentSequence(claimType msg.ClaimType) (int64, error) {
 		return 0, nil
 	}
 
-	sequence, err := strconv.ParseInt(string(bz), 10, 64)
-	if err != nil {
-		return 0, err
-	}
+	sequence := binary.BigEndian.Uint64(bz)
 
-	return sequence, err
+	return int64(sequence), err
 }
 
 func (c *HTTP) sign(m msg.Msg, options ...tx.Option) ([]byte, error) {
