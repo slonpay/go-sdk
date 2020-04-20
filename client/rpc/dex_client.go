@@ -76,6 +76,7 @@ type DexClient interface {
 		refundAddresses []msg.EthereumAddress, receiverAddresses []types.AccAddress, amounts []int64, symbol string,
 		relayFee types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 
+	Claim(claimType msg.ClaimType, claim string, sequence int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	GetProphecy(claimType msg.ClaimType, sequence int64) (*msg.Prophecy, error)
 	GetCurrentSequence(claimType msg.ClaimType) (int64, error)
 }
@@ -793,6 +794,18 @@ func (c *HTTP) broadcast(m msg.Msg, syncType SyncType, options ...tx.Option) (*c
 	default:
 		return nil, fmt.Errorf("unknown synctype")
 	}
+}
+
+func (c *HTTP) Claim(claimType msg.ClaimType, claim string, sequence int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
+	if c.key == nil {
+		return nil, KeyMissingError
+	}
+
+	fromAddr := c.key.GetAddr()
+
+	claimMsg := msg.NewClaimMsg(claimType, sequence, claim, fromAddr)
+
+	return c.broadcast(claimMsg, syncType, options...)
 }
 
 func (c *HTTP) GetProphecy(claimType msg.ClaimType, sequence int64) (*msg.Prophecy, error) {
