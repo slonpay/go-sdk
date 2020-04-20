@@ -68,7 +68,7 @@ type DexClient interface {
 	ClaimHTLT(swapID []byte, randomNumber []byte, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	RefundHTLT(swapID []byte, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 
-	UpdateBind(sequence int64, symbol string, amount types.Int, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
+	UpdateBind(sequence int64, symbol string, amount types.Int, contractAddress msg.EthereumAddress, status msg.BindStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	UpdateTransferOut(sequence int64, refundAddr types.AccAddress, amount types.Coin, refundReason msg.RefundReason, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	Bind(symbol string, amount int64, contractAddress msg.EthereumAddress, contractDecimals int8, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
 	TransferOut(to msg.EthereumAddress, amount types.Coin, expireTime int64, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error)
@@ -737,7 +737,7 @@ func (c *HTTP) UpdateTransferOut(sequence int64, refundAddr types.AccAddress, am
 	return c.broadcast(claimMsg, syncType, options...)
 }
 
-func (c *HTTP) UpdateBind(sequence int64, symbol string, amount types.Int, contractAddress msg.EthereumAddress, contractDecimals int8, status msg.BindStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
+func (c *HTTP) UpdateBind(sequence int64, symbol string, amount types.Int, contractAddress msg.EthereumAddress, status msg.BindStatus, syncType SyncType, options ...tx.Option) (*core_types.ResultBroadcastTx, error) {
 	if c.key == nil {
 		return nil, KeyMissingError
 	}
@@ -745,11 +745,10 @@ func (c *HTTP) UpdateBind(sequence int64, symbol string, amount types.Int, contr
 	fromAddr := c.key.GetAddr()
 
 	claim := msg.UpdateBindClaim{
-		Status:           status,
-		Symbol:           strings.ToUpper(symbol),
-		Amount:           amount,
-		ContractAddress:  contractAddress,
-		ContractDecimals: contractDecimals,
+		Status:          status,
+		Symbol:          strings.ToUpper(symbol),
+		Amount:          amount,
+		ContractAddress: contractAddress,
 	}
 
 	claimBz, err := json.Marshal(claim)
