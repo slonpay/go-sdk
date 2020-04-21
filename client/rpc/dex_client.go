@@ -747,7 +747,6 @@ func (c *HTTP) UpdateBind(sequence int64, symbol string, amount types.Int, contr
 	claim := msg.UpdateBindClaim{
 		Status:          status,
 		Symbol:          strings.ToUpper(symbol),
-		Amount:          amount,
 		ContractAddress: contractAddress,
 	}
 

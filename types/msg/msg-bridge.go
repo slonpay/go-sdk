@@ -68,7 +68,6 @@ type UpdateTransferOutClaim struct {
 type UpdateBindClaim struct {
 	Status          BindStatus      `json:"status"`
 	Symbol          string          `json:"symbol"`
-	Amount          sdk.Int         `json:"amount"`
 	ContractAddress EthereumAddress `json:"contract_address"`
 }
 
