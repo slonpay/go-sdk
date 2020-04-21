@@ -64,44 +64,6 @@ func IsValidClaimType(ct ClaimType) bool {
 	return false
 }
 
-// Marshal needed for protobuf compatibility
-func (ct ClaimType) Marshal() ([]byte, error) {
-	return []byte{byte(ct)}, nil
-}
-
-// Unmarshal needed for protobuf compatibility
-func (ct *ClaimType) Unmarshal(data []byte) error {
-	*ct = ClaimType(data[0])
-	return nil
-}
-
-// Marshals to JSON using string
-func (ct ClaimType) MarshalJSON() ([]byte, error) {
-	return json.Marshal(ct.String())
-}
-
-// Unmarshals from JSON assuming Bech32 encoding
-func (ct *ClaimType) UnmarshalJSON(data []byte) error {
-	var s string
-	err := json.Unmarshal(data, &s)
-	if err != nil {
-		return nil
-	}
-
-	bz2, err := ClaimTypeFromString(s)
-	if err != nil {
-		return err
-	}
-	*ct = bz2
-	return nil
-}
-
-// Turns VoteOption byte to String
-func (ct ClaimType) String() string {
-	claimTypeName, _ := claimTypeToName[ct]
-	return claimTypeName
-}
-
 func GetClaimId(claimType ClaimType, sequence int64) string {
 	return fmt.Sprintf("%d:%d", claimType, sequence)
 }
