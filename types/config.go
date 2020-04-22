@@ -7,6 +7,7 @@ const (
 	DefaultWSPrefix         = "/api/ws"
 	NativeSymbol            = "BNB"
 
-	TestnetChainID = "Binance-Chain-Nile"
-	ProdChainID    = "bnbchain-1000"
+	TestnetChainID    = "Binance-Chain-Nile"
+	TmpTestnetChainId = "Binance-Chain-Kongo"
+	ProdChainID       = "Binance-Chain-Tigris"
 )
