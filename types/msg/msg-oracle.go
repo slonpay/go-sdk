@@ -23,11 +23,13 @@ const (
 	ClaimTypeUpdateBind        ClaimType = 0x2
 	ClaimTypeUpdateTransferOut ClaimType = 0x3
 	ClaimTypeTransferIn        ClaimType = 0x4
+	ClaimTypeDowntimeSlash     ClaimType = 0x5
 
 	ClaimTypeSkipSequenceName      = "SkipSequence"
 	ClaimTypeUpdateBindName        = "UpdateBind"
 	ClaimTypeUpdateTransferOutName = "UpdateTransferOut"
 	ClaimTypeTransferInName        = "TransferIn"
+	ClaimTypeDowntimeSlashName     = "DowntimeSlash"
 )
 
 var claimTypeToName = map[ClaimType]string{
@@ -35,6 +37,7 @@ var claimTypeToName = map[ClaimType]string{
 	ClaimTypeUpdateBind:        ClaimTypeUpdateBindName,
 	ClaimTypeUpdateTransferOut: ClaimTypeUpdateTransferOutName,
 	ClaimTypeTransferIn:        ClaimTypeTransferInName,
+	ClaimTypeDowntimeSlash:     ClaimTypeDowntimeSlashName,
 }
 
 var claimNameToType = map[string]ClaimType{
@@ -42,6 +45,7 @@ var claimNameToType = map[string]ClaimType{
 	ClaimTypeUpdateBindName:        ClaimTypeUpdateBind,
 	ClaimTypeUpdateTransferOutName: ClaimTypeUpdateTransferOut,
 	ClaimTypeTransferInName:        ClaimTypeTransferIn,
+	ClaimTypeDowntimeSlashName:     ClaimTypeDowntimeSlash,
 }
 
 // String to claim type byte.  Returns ff if invalid.
@@ -149,4 +153,11 @@ func (msg ClaimMsg) ValidateBasic() error {
 		return fmt.Errorf("length of validator address should be %d", sdk.AddrLen)
 	}
 	return nil
+}
+
+type SideDowntimeSlashClaim struct {
+	SideConsAddr  []byte `json:"side_cons_addr"`
+	SideHeight    int64  `json:"side_height"`
+	SideChainId   string `json:"side_chain_id"`
+	SideTimestamp int64  `json:"side_timestamp"`
 }
